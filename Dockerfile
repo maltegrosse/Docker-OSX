@@ -51,7 +51,8 @@
 #       docker run ... -e EXTRA="-usb -device usb-host,hostbus=1,hostaddr=8" ...
 #       # you will also need to pass the device to the container
 
-FROM archlinux:base-devel
+#FROM archlinux:base-devel
+FROM debian:buster-slim
 LABEL maintainer='https://twitter.com/sickcodes <https://sick.codes>'
 
 SHELL ["/bin/bash", "-c"]
@@ -62,32 +63,34 @@ ARG SIZE=200G
 # OPTIONAL: Arch Linux server mirrors for super fast builds
 # set RANKMIRRORS to any value other that nothing, e.g. -e RANKMIRRORS=true
 
-RUN perl -i -p -e s/^\#Color/Color$'\n'ParallelDownloads\ =\ 30/g /etc/pacman.conf 
-ARG RANKMIRRORS
-ARG MIRROR_COUNTRY=US
-ARG MIRROR_COUNT=10
+#RUN perl -i -p -e s/^\#Color/Color$'\n'ParallelDownloads\ =\ 30/g /etc/pacman.conf 
+#ARG RANKMIRRORS
+#ARG MIRROR_COUNTRY=US
+#ARG MIRROR_COUNT=10
 
-RUN if [[ "${RANKMIRRORS}" ]]; then \
-        { pacman -Sy wget --noconfirm || pacman -Syu wget --noconfirm ; } \
-        ; wget -O ./rankmirrors "https://raw.githubusercontent.com/sickcodes/Docker-OSX/master/rankmirrors" \
-        ; wget -O- "https://www.archlinux.org/mirrorlist/?country=${MIRROR_COUNTRY:-US}&protocol=https&use_mirror_status=on" \
-        | sed -e 's/^#Server/Server/' -e '/^#/d' \
-        | head -n "$((${MIRROR_COUNT:-10}+1))" \
-        | bash ./rankmirrors --verbose --max-time 5 - > /etc/pacman.d/mirrorlist \
-        && tee -a /etc/pacman.d/mirrorlist <<< 'Server = http://mirrors.evowise.com/archlinux/$repo/os/$arch' \
-        && tee -a /etc/pacman.d/mirrorlist <<< 'Server = http://mirror.rackspace.com/archlinux/$repo/os/$arch' \
-        && tee -a /etc/pacman.d/mirrorlist <<< 'Server = https://mirror.rackspace.com/archlinux/$repo/os/$arch' \
-        && cat /etc/pacman.d/mirrorlist \
-    ; fi
+#RUN if [[ "${RANKMIRRORS}" ]]; then \
+#        { pacman -Sy wget --noconfirm || pacman -Syu wget --noconfirm ; } \
+#        ; wget -O ./rankmirrors "https://raw.githubusercontent.com/sickcodes/Docker-OSX/master/rankmirrors" \
+#        ; wget -O- "https://www.archlinux.org/mirrorlist/?country=${MIRROR_COUNTRY:-US}&protocol=https&use_mirror_status=on" \
+#        | sed -e 's/^#Server/Server/' -e '/^#/d' \
+#        | head -n "$((${MIRROR_COUNT:-10}+1))" \
+#        | bash ./rankmirrors --verbose --max-time 5 - > /etc/pacman.d/mirrorlist \
+#        && tee -a /etc/pacman.d/mirrorlist <<< 'Server = http://mirrors.evowise.com/archlinux/$repo/os/$arch' \
+#        && tee -a /etc/pacman.d/mirrorlist <<< 'Server = http://mirror.rackspace.com/archlinux/$repo/os/$arch' \
+#        && tee -a /etc/pacman.d/mirrorlist <<< 'Server = https://mirror.rackspace.com/archlinux/$repo/os/$arch' \
+#        && cat /etc/pacman.d/mirrorlist \
+#    ; fi
 
 # This fails on hub.docker.com, useful for debugging in cloud
 # RUN [[ $(egrep -c '(svm|vmx)' /proc/cpuinfo) -gt 0 ]] || { echo KVM not possible on this host && exit 1; }
 
 # RUN tee -a /etc/pacman.conf <<< '[community-testing]' \
 #     && tee -a /etc/pacman.conf <<< 'Include = /etc/pacman.d/mirrorlist'
-
-RUN pacman -Syu git zip vim nano alsa-utils openssh --noconfirm \
-    && ln -s /bin/vim /bin/vi \
+RUN apt-get update -y && apt-get upgrade -y
+RUN apt-get install -y git zip vim nano alsa-utils openssh-server sudo
+RUN yes | DEBIAN_FRONTEND='noninteractive' apt-get install -y --no-install-recommends jackd2
+#RUN pacman -Syu git zip vim nano alsa-utils openssh --noconfirm \
+RUN ln -s /bin/vim /bin/vi \
     && useradd arch -p arch \
     && tee -a /etc/sudoers <<< 'arch ALL=(ALL) NOPASSWD: ALL' \
     && mkdir /home/arch \
@@ -139,10 +142,10 @@ RUN touch enable-ssh.sh \
 # default env vars, RUNTIME ONLY, not for editing in build time.
 
 # RUN yes | sudo pacman -Syu qemu libvirt dnsmasq virt-manager bridge-utils edk2-ovmf netctl libvirt-dbus --overwrite --noconfirm
-
-RUN yes | sudo pacman -Syu bc qemu libvirt dnsmasq virt-manager bridge-utils openresolv jack2 ebtables edk2-ovmf netctl libvirt-dbus wget --overwrite --noconfirm \
-    && yes | sudo pacman -Scc
-
+# netctl missing edk2
+RUN yes yes | sudo apt-get install -y bc qemu libvirt-daemon-system dnsmasq virt-manager bridge-utils openresolv  ebtables libvirt-dbus wget  
+#DEBIAN_FRONTEND='noninteractive' 
+RUN sudo apt-get install -y build-essential
 WORKDIR /home/arch/OSX-KVM
 
 # RUN wget https://raw.githubusercontent.com/kholia/OSX-KVM/master/fetch-macOS-v2.py
@@ -157,7 +160,8 @@ ARG LINUX=true
 
 # required to use libguestfs inside a docker container, to create bootdisks for docker-osx on-the-fly
 RUN if [[ "${LINUX}" == true ]]; then \
-        sudo pacman -Syu linux libguestfs --noconfirm \
+      #  sudo pacman -Syu linux libguestfs --noconfirm \
+        sudo apt-get install -y libguestfs-tools \
     ; fi
 
 # optional --build-arg to change branches for testing
@@ -217,25 +221,25 @@ ENV USER arch
 
 # 5.13+ problem resolved by building the qcow2 against 5.12 using libguestfs-1.44.1-6
 
-ENV SUPERMIN_KERNEL=/boot/vmlinuz-linux
-ENV SUPERMIN_MODULES=/lib/modules/5.12.14-arch1-1
-ENV SUPERMIN_KERNEL_VERSION=5.12.14-arch1-1
-ENV KERNEL_PACKAGE_URL=https://archive.archlinux.org/packages/l/linux/linux-5.12.14.arch1-1-x86_64.pkg.tar.zst
-ENV KERNEL_HEADERS_PACKAGE_URL=https://archive.archlinux.org/packages/l/linux/linux-headers-5.12.14.arch1-1-x86_64.pkg.tar.zst
-ENV LIBGUESTFS_PACKAGE_URL=https://archive.archlinux.org/packages/l/libguestfs/libguestfs-1.44.1-6-x86_64.pkg.tar.zst
+#ENV SUPERMIN_KERNEL=/boot/vmlinuz-linux
+#ENV SUPERMIN_MODULES=/lib/modules/5.12.14-arch1-1
+#ENV SUPERMIN_KERNEL_VERSION=5.12.14-arch1-1
+#ENV KERNEL_PACKAGE_URL=https://archive.archlinux.org/packages/l/linux/linux-5.12.14.arch1-1-x86_64.pkg.tar.zst
+#ENV KERNEL_HEADERS_PACKAGE_URL=https://archive.archlinux.org/packages/l/linux/linux-headers-5.12.14.arch1-1-x86_64.pkg.tar.zst
+#ENV LIBGUESTFS_PACKAGE_URL=https://archive.archlinux.org/packages/l/libguestfs/libguestfs-1.44.1-6-x86_64.pkg.tar.zst
 
 # fix ad hoc errors from using the arch museum to get libguestfs
-RUN sudo sed -i -e 's/^\#RemoteFileSigLevel/RemoteFileSigLevel/g' /etc/pacman.conf
+#RUN sudo sed -i -e 's/^\#RemoteFileSigLevel/RemoteFileSigLevel/g' /etc/pacman.conf
 
-RUN sudo pacman -Syy \
-    && sudo pacman -Rns linux --noconfirm \
-    ; sudo pacman -S mkinitcpio --noconfirm \
-    && sudo pacman -U "${KERNEL_PACKAGE_URL}" --noconfirm || exit 1 \
-    && sudo pacman -U "${LIBGUESTFS_PACKAGE_URL}" --noconfirm || exit 1 \
-    && rm -rf /var/tmp/.guestfs-* \
-    && yes | sudo pacman -Scc \
-    && libguestfs-test-tool || exit 1 \
-    && rm -rf /var/tmp/.guestfs-*
+#RUN sudo pacman -Syy \
+#    && sudo pacman -Rns linux --noconfirm \
+#    ; sudo pacman -S mkinitcpio --noconfirm \
+#    && sudo pacman -U "${KERNEL_PACKAGE_URL}" --noconfirm || exit 1 \
+#    && sudo pacman -U "${LIBGUESTFS_PACKAGE_URL}" --noconfirm || exit 1 \
+#    && rm -rf /var/tmp/.guestfs-* \
+#    && yes | sudo pacman -Scc \
+#    && libguestfs-test-tool || exit 1 \
+#    && rm -rf /var/tmp/.guestfs-*
 
 ####
 
