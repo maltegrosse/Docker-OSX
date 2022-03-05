@@ -16,7 +16,7 @@
 # 
 # Visit https://github.com/sickcodes/Docker-OSX for info
 
-FROM sickcodes/docker-osx:latest
+FROM maltegrosse/docker-osx:latest
 
 MAINTAINER 'https://twitter.com/sickcodes' <https://sick.codes>
 
@@ -31,31 +31,30 @@ ARG SCROT
 
 # OPTIONAL: Arch Linux server mirrors for super fast builds
 # set RANKMIRRORS to any value other that nothing, e.g. -e RANKMIRRORS=true
-ARG RANKMIRRORS
-ARG MIRROR_COUNTRY=US
-ARG MIRROR_COUNT=10
+#ARG RANKMIRRORS
+#ARG MIRROR_COUNTRY=US
+#ARG MIRROR_COUNT=10
 
-RUN if [[ "${RANKMIRRORS}" ]]; then \
-        { pacman -Sy wget --noconfirm || pacman -Syu wget --noconfirm ; } \
-        ; wget -O ./rankmirrors "https://raw.githubusercontent.com/sickcodes/Docker-OSX/master/rankmirrors" \
-        ; wget -O- "https://www.archlinux.org/mirrorlist/?country=${MIRROR_COUNTRY:-US}&protocol=https&use_mirror_status=on" \
-        | sed -e 's/^#Server/Server/' -e '/^#/d' \
-        | head -n "$((${MIRROR_COUNT:-10}+1))" \
-        | bash ./rankmirrors --verbose --max-time 5 - > /etc/pacman.d/mirrorlist \
-        && tee -a /etc/pacman.d/mirrorlist <<< 'Server = http://mirrors.evowise.com/archlinux/$repo/os/$arch' \
-        && tee -a /etc/pacman.d/mirrorlist <<< 'Server = http://mirror.rackspace.com/archlinux/$repo/os/$arch' \
-        && tee -a /etc/pacman.d/mirrorlist <<< 'Server = https://mirror.rackspace.com/archlinux/$repo/os/$arch' \
-        && cat /etc/pacman.d/mirrorlist \
-    ; fi \
-    ; yes | pacman -Scc
+#RUN if [[ "${RANKMIRRORS}" ]]; then \
+#        { pacman -Sy wget --noconfirm || pacman -Syu wget --noconfirm ; } \
+#        ; wget -O ./rankmirrors "https://raw.githubusercontent.com/sickcodes/Docker-OSX/master/rankmirrors" \
+#        ; wget -O- "https://www.archlinux.org/mirrorlist/?country=${MIRROR_COUNTRY:-US}&protocol=https&use_mirror_status=on" \
+#        | sed -e 's/^#Server/Server/' -e '/^#/d' \
+#        | head -n "$((${MIRROR_COUNT:-10}+1))" \
+#        | bash ./rankmirrors --verbose --max-time 5 - > /etc/pacman.d/mirrorlist \
+#        && tee -a /etc/pacman.d/mirrorlist <<< 'Server = http://mirrors.evowise.com/archlinux/$repo/os/$arch' \
+#        && tee -a /etc/pacman.d/mirrorlist <<< 'Server = http://mirror.rackspace.com/archlinux/$repo/os/$arch' \
+#        && tee -a /etc/pacman.d/mirrorlist <<< 'Server = https://mirror.rackspace.com/archlinux/$repo/os/$arch' \
+#        && cat /etc/pacman.d/mirrorlist \
+#    ; fi \
+#    ; yes | pacman -Scc
 
 # For taking screenshots of the Xfvb screen, useful during development.
 ARG SCROT
 
-RUN pacman -Syu xorg-server-xvfb wget xterm xorg-xhost xorg-xrandr sshpass --noconfirm \
+RUN apt-get install -y xvfb wget xterm x11-xserver-utils  sshpass \
     && if [[ "${SCROT}" ]]; then \
-        pacman -Syu scrot base-devel --noconfirm \
-        && git clone --recurse-submodules --depth 1 https://github.com/stolk/imcat.git \
+        git clone --recurse-submodules --depth 1 https://github.com/stolk/imcat.git \
         && cd imcat \
         && make \
         && sudo cp imcat /usr/bin/imcat \
@@ -67,7 +66,7 @@ RUN pacman -Syu xorg-server-xvfb wget xterm xorg-xhost xorg-xrandr sshpass --noc
         && echo echo >> /usr/bin/scrotcat \
         && chmod +x /usr/bin/scrotcat \
     ; fi \
-    ; yes | pacman -Scc
+    ; 
 
 USER arch
 
@@ -77,25 +76,25 @@ ENV USER arch
 
 # 5.13+ problem resolved by building the qcow2 against 5.12 using libguestfs-1.44.1-6
 
-ENV SUPERMIN_KERNEL=/boot/vmlinuz-linux
-ENV SUPERMIN_MODULES=/lib/modules/5.12.14-arch1-1
-ENV SUPERMIN_KERNEL_VERSION=5.12.14-arch1-1
-ENV KERNEL_PACKAGE_URL=https://archive.archlinux.org/packages/l/linux/linux-5.12.14.arch1-1-x86_64.pkg.tar.zst
-ENV KERNEL_HEADERS_PACKAGE_URL=https://archive.archlinux.org/packages/l/linux/linux-headers-5.12.14.arch1-1-x86_64.pkg.tar.zst
-ENV LIBGUESTFS_PACKAGE_URL=https://archive.archlinux.org/packages/l/libguestfs/libguestfs-1.44.1-6-x86_64.pkg.tar.zst
+#ENV SUPERMIN_KERNEL=/boot/vmlinuz-linux
+#ENV SUPERMIN_MODULES=/lib/modules/5.12.14-arch1-1
+#ENV SUPERMIN_KERNEL_VERSION=5.12.14-arch1-1
+#ENV KERNEL_PACKAGE_URL=https://archive.archlinux.org/packages/l/linux/linux-5.12.14.arch1-1-x86_64.pkg.tar.zst
+#ENV KERNEL_HEADERS_PACKAGE_URL=https://archive.archlinux.org/packages/l/linux/linux-headers-5.12.14.arch1-1-x86_64.pkg.tar.zst
+#ENV LIBGUESTFS_PACKAGE_URL=https://archive.archlinux.org/packages/l/libguestfs/libguestfs-1.44.1-6-x86_64.pkg.tar.zst
 
 # fix ad hoc errors from using the arch museum to get libguestfs
-RUN sudo sed -i -e 's/^\#RemoteFileSigLevel/RemoteFileSigLevel/g' /etc/pacman.conf
+#RUN sudo sed -i -e 's/^\#RemoteFileSigLevel/RemoteFileSigLevel/g' /etc/pacman.conf
 
-RUN sudo pacman -Syy \
-    && sudo pacman -Rns linux --noconfirm \
-    ; sudo pacman -S mkinitcpio --noconfirm \
-    && sudo pacman -U "${KERNEL_PACKAGE_URL}" --noconfirm || exit 1 \
-    && sudo pacman -U "${LIBGUESTFS_PACKAGE_URL}" --noconfirm || exit 1 \
-    && rm -rf /var/tmp/.guestfs-* \
-    && yes | sudo pacman -Scc \
-    && libguestfs-test-tool || exit 1 \
-    && rm -rf /var/tmp/.guestfs-*
+#RUN sudo pacman -Syy \
+#    && sudo pacman -Rns linux --noconfirm \
+#    ; sudo pacman -S mkinitcpio --noconfirm \
+#    && sudo pacman -U "${KERNEL_PACKAGE_URL}" --noconfirm || exit 1 \
+#    && sudo pacman -U "${LIBGUESTFS_PACKAGE_URL}" --noconfirm || exit 1 \
+#    && rm -rf /var/tmp/.guestfs-* \
+#    && yes | sudo pacman -Scc \
+#    && libguestfs-test-tool || exit 1 \
+#    && rm -rf /var/tmp/.guestfs-*
 
 ####
 
