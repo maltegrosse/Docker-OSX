@@ -52,7 +52,7 @@
 #       # you will also need to pass the device to the container
 
 #FROM archlinux:base-devel
-FROM debian:buster-slim
+FROM debian:bullseye-slim
 LABEL maintainer='https://twitter.com/sickcodes <https://sick.codes>'
 
 SHELL ["/bin/bash", "-c"]
@@ -86,8 +86,13 @@ ARG SIZE=200G
 
 # RUN tee -a /etc/pacman.conf <<< '[community-testing]' \
 #     && tee -a /etc/pacman.conf <<< 'Include = /etc/pacman.d/mirrorlist'
+#RUN echo 'deb http://deb.debian.org/debian buster-backports main' >> /etc/apt/sources.list
 RUN apt-get update -y && apt-get upgrade -y
-RUN apt-get install -y git zip vim nano alsa-utils openssh-server sudo
+RUN apt-get install -y git zip vim nano alsa-utils openssh-server sudo uuid-runtime qemu qemu-system-common qemu-system-gui
+#RUN apt-get install -y qemu/buster-backports 
+#RUN apt-get install -y qemu-system-common/buster-backports 
+#RUN apt-get install -y qemu-utils/buster-backports
+#RUN apt-get install -y  qemu-system-gui/buster-backports
 RUN yes | DEBIAN_FRONTEND='noninteractive' apt-get install -y --no-install-recommends jackd2
 #RUN pacman -Syu git zip vim nano alsa-utils openssh --noconfirm \
 RUN ln -s /bin/vim /bin/vi \
